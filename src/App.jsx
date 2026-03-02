@@ -43,6 +43,20 @@ import dayjs from 'dayjs';
 const API_BASE = '/api/v1';
 const MASTER_KEY = 'antigravity_license_master_key_2026';
 const PLATFORM_KEYS = ['darwin', 'win32', 'linux'];
+const CODEX_PLATFORM_OPTIONS = [
+    { value: 'darwin', label: 'darwin (macOS)' },
+    { value: 'win32', label: 'win32 (Windows)' },
+    { value: 'linux', label: 'linux' },
+];
+const CODEX_ARCH_OPTIONS = [
+    { value: 'arm64', label: 'arm64' },
+    { value: 'x64', label: 'x64' },
+    { value: 'x86', label: 'x86' },
+];
+const CODEX_METHOD_OPTIONS = [
+    { value: 'zip_extract', label: 'zip_extract' },
+    { value: 'tar_extract', label: 'tar_extract' },
+];
 const CAPABILITY_OPTIONS = [
     { value: 'screen_capture', label: 'screen_capture' },
     { value: 'camera_access', label: 'camera_access' },
@@ -116,6 +130,7 @@ function App() {
     const [licenses, setLicenses] = useState([]);
     const [skills, setSkills] = useState([]);
     const [versions, setVersions] = useState([]);
+    const [codexReleases, setCodexReleases] = useState([]);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -125,11 +140,14 @@ function App() {
     const [editingSkill, setEditingSkill] = useState(null);
     const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
     const [editingVersion, setEditingVersion] = useState(null);
+    const [isCodexModalOpen, setIsCodexModalOpen] = useState(false);
+    const [editingCodexRelease, setEditingCodexRelease] = useState(null);
 
     const [form] = Form.useForm();
     const [editForm] = Form.useForm();
     const [skillForm] = Form.useForm();
     const [versionForm] = Form.useForm();
+    const [codexForm] = Form.useForm();
 
     const authHeaders = { headers: { 'X-API-KEY': MASTER_KEY } };
 
@@ -187,11 +205,30 @@ function App() {
         }
     };
 
+    const fetchCodexReleases = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.get(`${API_BASE}/admin/omnimind/codex/releases`, authHeaders);
+            if (res.data && res.data.success && Array.isArray(res.data.data)) {
+                setCodexReleases(res.data.data);
+            } else {
+                setCodexReleases([]);
+            }
+        } catch (err) {
+            console.error('fetch codex releases failed:', err);
+            if (isLoggedIn) message.error('Không thể tải danh sách Codex release');
+            setCodexReleases([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!isLoggedIn) return;
         fetchLicenses();
         fetchSkills();
         fetchVersions();
+        fetchCodexReleases();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoggedIn]);
 
@@ -211,6 +248,7 @@ function App() {
         setLicenses([]);
         setSkills([]);
         setVersions([]);
+        setCodexReleases([]);
     };
 
     const generateKey = (targetForm) => {
@@ -511,6 +549,67 @@ function App() {
         }
     };
 
+    const openCodexModal = (record = null) => {
+        setEditingCodexRelease(record);
+        codexForm.setFieldsValue({
+            platform: record?.platform || 'darwin',
+            arch: record?.arch || 'arm64',
+            version: record?.version || '',
+            url: record?.url || '',
+            checksum: record?.checksum || '',
+            file_name: record?.file_name || '',
+            size_bytes: record?.size_bytes || null,
+            method: record?.method || 'zip_extract',
+            channel: record?.channel || 'stable',
+            is_active: record?.is_active ?? true,
+            notes: record?.notes || '',
+        });
+        setIsCodexModalOpen(true);
+    };
+
+    const handleSaveCodexRelease = async (values) => {
+        const payload = {
+            platform: values.platform,
+            arch: values.arch,
+            version: values.version,
+            url: values.url,
+            checksum: String(values.checksum || '').trim(),
+            file_name: String(values.file_name || '').trim(),
+            size_bytes: values.size_bytes ?? null,
+            method: values.method || 'zip_extract',
+            channel: values.channel || 'stable',
+            is_active: Boolean(values.is_active),
+            notes: String(values.notes || '').trim(),
+        };
+        try {
+            setLoading(true);
+            await axios.post(`${API_BASE}/admin/omnimind/codex/releases`, payload, authHeaders);
+            message.success(editingCodexRelease ? 'Cập nhật Codex release thành công' : 'Tạo Codex release thành công');
+            setIsCodexModalOpen(false);
+            setEditingCodexRelease(null);
+            codexForm.resetFields();
+            fetchCodexReleases();
+        } catch (err) {
+            const serverError = err?.response?.data?.error || err?.response?.data?.message;
+            message.error(serverError || 'Lỗi khi lưu Codex release');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteCodexRelease = async (id) => {
+        try {
+            setLoading(true);
+            await axios.delete(`${API_BASE}/admin/omnimind/codex/releases/${id}`, authHeaders);
+            message.success('Đã xoá Codex release');
+            fetchCodexReleases();
+        } catch (err) {
+            message.error('Không thể xoá Codex release');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     if (!isLoggedIn) {
         return (
             <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#001529' }}>
@@ -539,6 +638,7 @@ function App() {
     const safeLicenses = Array.isArray(licenses) ? licenses : [];
     const safeSkills = Array.isArray(skills) ? skills : [];
     const safeVersions = Array.isArray(versions) ? versions : [];
+    const safeCodexReleases = Array.isArray(codexReleases) ? codexReleases : [];
 
     const licenseColumns = [
         {
@@ -646,6 +746,41 @@ function App() {
         },
     ];
 
+    const codexColumns = [
+        { title: 'ID', dataIndex: 'id', key: 'id', width: 70 },
+        { title: 'Platform', dataIndex: 'platform', key: 'platform', width: 120, render: (v) => <Tag color="blue">{v}</Tag> },
+        { title: 'Arch', dataIndex: 'arch', key: 'arch', width: 100, render: (v) => <Tag>{v}</Tag> },
+        { title: 'Version', dataIndex: 'version', key: 'version', width: 110, render: (v) => <code>{v}</code> },
+        { title: 'Channel', dataIndex: 'channel', key: 'channel', width: 100 },
+        { title: 'Method', dataIndex: 'method', key: 'method', width: 120 },
+        {
+            title: 'Trạng thái',
+            dataIndex: 'is_active',
+            key: 'is_active',
+            width: 90,
+            render: (v) => v ? <Tag color="green">ACTIVE</Tag> : <Tag color="default">OFF</Tag>,
+        },
+        {
+            title: 'URL',
+            dataIndex: 'url',
+            key: 'url',
+            render: (v) => v ? <a href={v} target="_blank" rel="noreferrer">Link tải</a> : <Tag>Chưa có</Tag>,
+        },
+        {
+            title: 'Thao tác',
+            key: 'actions',
+            width: 160,
+            render: (_, r) => (
+                <Space>
+                    <Button icon={<Edit2 size={16} />} onClick={() => openCodexModal(r)} />
+                    <Popconfirm title="Xoá release này?" onConfirm={() => handleDeleteCodexRelease(r.id)}>
+                        <Button danger icon={<Trash2 size={16} />} />
+                    </Popconfirm>
+                </Space>
+            ),
+        },
+    ];
+
     const dashboardContent = (
         <Row gutter={16}>
             <Col span={6}>
@@ -740,10 +875,34 @@ function App() {
         </>
     );
 
+    const codexContent = (
+        <>
+            <Row gutter={16} style={{ marginBottom: 24 }}>
+                <Col span={8}><Card bordered={false}><Statistic title="Tổng Codex Release" value={safeCodexReleases.length} prefix={<Database size={18} />} /></Card></Col>
+                <Col span={8}><Card bordered={false}><Statistic title="Đang Active" value={safeCodexReleases.filter((r) => r.is_active).length} /></Card></Col>
+                <Col span={8}>
+                    <Button
+                        type="primary"
+                        size="large"
+                        icon={<Plus size={20} />}
+                        onClick={() => openCodexModal(null)}
+                        style={{ width: '100%', height: 60, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                    >
+                        Tạo Codex Release
+                    </Button>
+                </Col>
+            </Row>
+            <Card bordered={false} style={{ borderRadius: 12 }}>
+                <Table columns={codexColumns} dataSource={safeCodexReleases} rowKey="id" loading={loading} pagination={{ pageSize: 8 }} />
+            </Card>
+        </>
+    );
+
     let content = dashboardContent;
     if (activeMenu === 'licenses') content = licensesContent;
     if (activeMenu === 'skills') content = skillsContent;
     if (activeMenu === 'versions') content = versionsContent;
+    if (activeMenu === 'codex') content = codexContent;
 
     return (
         <ConfigProvider theme={{ algorithm: theme.defaultAlgorithm }}>
@@ -762,7 +921,8 @@ function App() {
                             { key: 'dashboard', icon: <LayoutDashboard size={18} />, label: 'Bảng điều khiển' },
                             { key: 'licenses', icon: <Database size={18} />, label: 'Danh sách License' },
                             { key: 'skills', icon: <Puzzle size={18} />, label: 'Marketplace Skills' },
-                            { key: 'versions', icon: <RefreshCcw size={18} />, label: 'App Versions' }
+                            { key: 'versions', icon: <RefreshCcw size={18} />, label: 'App Versions' },
+                            { key: 'codex', icon: <Key size={18} />, label: 'Codex Releases' },
                         ]}
                     />
                 </Layout.Sider>
@@ -771,7 +931,7 @@ function App() {
                     <Layout.Header style={{ backgroundColor: 'white', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f0f0' }}>
                         <h3 style={{ margin: 0 }}>License & Marketplace Manager</h3>
                         <Space>
-                            <Button icon={<RefreshCcw size={16} />} onClick={() => { fetchLicenses(); fetchSkills(); fetchVersions(); }}>
+                            <Button icon={<RefreshCcw size={16} />} onClick={() => { fetchLicenses(); fetchSkills(); fetchVersions(); fetchCodexReleases(); }}>
                                 Refresh
                             </Button>
                             <Button icon={<LogOut size={18} />} onClick={handleLogout}>Đăng xuất</Button>
@@ -1069,6 +1229,89 @@ function App() {
                         <Form.Item>
                             <Button type="primary" htmlType="submit" block size="large" loading={loading}>
                                 {editingVersion ? 'Lưu cập nhật' : 'Tạo Version'}
+                            </Button>
+                        </Form.Item>
+                    </Form>
+                </Modal>
+
+                <Modal
+                    title={editingCodexRelease ? "Chỉnh sửa Codex Release" : "Tạo Codex Release mới"}
+                    open={isCodexModalOpen}
+                    onCancel={() => { setIsCodexModalOpen(false); setEditingCodexRelease(null); }}
+                    footer={null}
+                    width={760}
+                    destroyOnClose
+                >
+                    <Form form={codexForm} layout="vertical" onFinish={handleSaveCodexRelease}>
+                        <Row gutter={12}>
+                            <Col span={8}>
+                                <Form.Item label="Platform" name="platform" rules={[{ required: true, message: 'Chọn platform' }]}>
+                                    <Select options={CODEX_PLATFORM_OPTIONS} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={8}>
+                                <Form.Item label="Arch" name="arch" rules={[{ required: true, message: 'Chọn architecture' }]}>
+                                    <Select options={CODEX_ARCH_OPTIONS} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={8}>
+                                <Form.Item label="Channel" name="channel" initialValue="stable" rules={[{ required: true, message: 'Nhập channel' }]}>
+                                    <Input placeholder="stable" />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+
+                        <Row gutter={12}>
+                            <Col span={8}>
+                                <Form.Item label="Version" name="version" rules={[{ required: true, message: 'Nhập version' }]}>
+                                    <Input placeholder="0.27.0" />
+                                </Form.Item>
+                            </Col>
+                            <Col span={16}>
+                                <Form.Item label="Download URL" name="url" rules={[{ required: true, message: 'Nhập link tải Codex' }, { type: 'url', message: 'URL không hợp lệ' }]}>
+                                    <Input placeholder="https://.../codex.zip" />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+
+                        <Row gutter={12}>
+                            <Col span={12}>
+                                <Form.Item label="Checksum (sha256)" name="checksum">
+                                    <Input placeholder="optional sha256" />
+                                </Form.Item>
+                            </Col>
+                            <Col span={12}>
+                                <Form.Item label="File Name" name="file_name">
+                                    <Input placeholder="codex.zip" />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+
+                        <Row gutter={12}>
+                            <Col span={8}>
+                                <Form.Item label="Size (bytes)" name="size_bytes">
+                                    <InputNumber min={0} style={{ width: '100%' }} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={8}>
+                                <Form.Item label="Method" name="method" initialValue="zip_extract">
+                                    <Select options={CODEX_METHOD_OPTIONS} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={8}>
+                                <Form.Item label="Active" name="is_active" valuePropName="checked" initialValue>
+                                    <Switch />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+
+                        <Form.Item label="Notes" name="notes">
+                            <Input.TextArea rows={4} placeholder="Ghi chú release..." />
+                        </Form.Item>
+
+                        <Form.Item>
+                            <Button type="primary" htmlType="submit" block size="large" loading={loading}>
+                                {editingCodexRelease ? 'Lưu cập nhật' : 'Tạo Codex Release'}
                             </Button>
                         </Form.Item>
                     </Form>
