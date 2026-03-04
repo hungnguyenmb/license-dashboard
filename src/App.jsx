@@ -21,7 +21,8 @@ import {
     Row,
     Col,
     ConfigProvider,
-    theme
+    theme,
+    Tabs
 } from 'antd';
 import {
     Shield,
@@ -36,7 +37,8 @@ import {
     Database,
     Edit2,
     Puzzle,
-    Trash2
+    Trash2,
+    CreditCard
 } from 'lucide-react';
 import dayjs from 'dayjs';
 
@@ -131,6 +133,13 @@ function App() {
     const [skills, setSkills] = useState([]);
     const [versions, setVersions] = useState([]);
     const [codexReleases, setCodexReleases] = useState([]);
+    const [paymentConfig, setPaymentConfig] = useState(null);
+    const [licensePlans, setLicensePlans] = useState([]);
+    const [pricingOverrides, setPricingOverrides] = useState([]);
+    const [paymentTransactions, setPaymentTransactions] = useState([]);
+    const [paymentAudits, setPaymentAudits] = useState([]);
+    const [paymentUserHistory, setPaymentUserHistory] = useState([]);
+    const [monitoringSummary, setMonitoringSummary] = useState(null);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -142,12 +151,18 @@ function App() {
     const [editingVersion, setEditingVersion] = useState(null);
     const [isCodexModalOpen, setIsCodexModalOpen] = useState(false);
     const [editingCodexRelease, setEditingCodexRelease] = useState(null);
+    const [isLicensePlanModalOpen, setIsLicensePlanModalOpen] = useState(false);
+    const [editingLicensePlan, setEditingLicensePlan] = useState(null);
+    const [isPricingOverrideModalOpen, setIsPricingOverrideModalOpen] = useState(false);
 
     const [form] = Form.useForm();
     const [editForm] = Form.useForm();
     const [skillForm] = Form.useForm();
     const [versionForm] = Form.useForm();
     const [codexForm] = Form.useForm();
+    const [paymentConfigForm] = Form.useForm();
+    const [licensePlanForm] = Form.useForm();
+    const [pricingOverrideForm] = Form.useForm();
 
     const authHeaders = { headers: { 'X-API-KEY': MASTER_KEY } };
 
@@ -216,8 +231,139 @@ function App() {
             }
         } catch (err) {
             console.error('fetch codex releases failed:', err);
-            if (isLoggedIn) message.error('Không thể tải danh sách Codex release');
+            if (isLoggedIn) message.error('Không thể tải danh sách OmniMind release');
             setCodexReleases([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchPaymentConfig = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.get(`${API_BASE}/admin/omnimind/payments/config`, authHeaders);
+            const data = res?.data?.data || null;
+            setPaymentConfig(data);
+            paymentConfigForm.setFieldsValue({
+                bank_code: data?.bank_code || '',
+                bank_account: data?.bank_account || '',
+                bank_account_name: data?.bank_account_name || '',
+                qr_base_url: data?.qr_base_url || 'https://img.vietqr.io/image',
+                payment_content_prefix: data?.payment_content_prefix || 'OMNI',
+                sepay_api_key: '',
+            });
+        } catch (err) {
+            console.error('fetch payment config failed:', err);
+            if (isLoggedIn) message.error('Không thể tải cấu hình thanh toán');
+            setPaymentConfig(null);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchLicensePlans = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.get(`${API_BASE}/admin/omnimind/licenses/plans`, authHeaders);
+            if (res?.data?.success && Array.isArray(res?.data?.data)) {
+                setLicensePlans(res.data.data);
+            } else {
+                setLicensePlans([]);
+            }
+        } catch (err) {
+            console.error('fetch license plans failed:', err);
+            if (isLoggedIn) message.error('Không thể tải bảng giá license');
+            setLicensePlans([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchPricingOverrides = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.get(`${API_BASE}/admin/omnimind/pricing/overrides`, authHeaders);
+            if (res?.data?.success && Array.isArray(res?.data?.data)) {
+                setPricingOverrides(res.data.data);
+            } else {
+                setPricingOverrides([]);
+            }
+        } catch (err) {
+            console.error('fetch pricing overrides failed:', err);
+            if (isLoggedIn) message.error('Không thể tải pricing overrides');
+            setPricingOverrides([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchPaymentTransactions = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.get(`${API_BASE}/admin/omnimind/payments/transactions?limit=100`, authHeaders);
+            if (res?.data?.success && Array.isArray(res?.data?.data)) {
+                setPaymentTransactions(res.data.data);
+            } else {
+                setPaymentTransactions([]);
+            }
+        } catch (err) {
+            console.error('fetch payment transactions failed:', err);
+            if (isLoggedIn) message.error('Không thể tải lịch sử giao dịch');
+            setPaymentTransactions([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchPaymentAudits = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.get(`${API_BASE}/admin/omnimind/payments/audits?limit=200`, authHeaders);
+            if (res?.data?.success && Array.isArray(res?.data?.data)) {
+                setPaymentAudits(res.data.data);
+            } else {
+                setPaymentAudits([]);
+            }
+        } catch (err) {
+            console.error('fetch payment audits failed:', err);
+            if (isLoggedIn) message.error('Không thể tải payment audit logs');
+            setPaymentAudits([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchPaymentUserHistory = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.get(`${API_BASE}/admin/omnimind/payments/users/history?limit=200`, authHeaders);
+            if (res?.data?.success && Array.isArray(res?.data?.data)) {
+                setPaymentUserHistory(res.data.data);
+            } else {
+                setPaymentUserHistory([]);
+            }
+        } catch (err) {
+            console.error('fetch payment user history failed:', err);
+            if (isLoggedIn) message.error('Không thể tải lịch sử thanh toán theo người dùng');
+            setPaymentUserHistory([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchMonitoringSummary = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.get(`${API_BASE}/admin/omnimind/monitoring/summary`, authHeaders);
+            if (res?.data?.success && res?.data?.data) {
+                setMonitoringSummary(res.data.data);
+            } else {
+                setMonitoringSummary(null);
+            }
+        } catch (err) {
+            console.error('fetch monitoring summary failed:', err);
+            if (isLoggedIn) message.error('Không thể tải dữ liệu monitoring');
+            setMonitoringSummary(null);
         } finally {
             setLoading(false);
         }
@@ -229,6 +375,13 @@ function App() {
         fetchSkills();
         fetchVersions();
         fetchCodexReleases();
+        fetchPaymentConfig();
+        fetchLicensePlans();
+        fetchPricingOverrides();
+        fetchPaymentTransactions();
+        fetchPaymentAudits();
+        fetchPaymentUserHistory();
+        fetchMonitoringSummary();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoggedIn]);
 
@@ -249,6 +402,13 @@ function App() {
         setSkills([]);
         setVersions([]);
         setCodexReleases([]);
+        setPaymentConfig(null);
+        setLicensePlans([]);
+        setPricingOverrides([]);
+        setPaymentTransactions([]);
+        setPaymentAudits([]);
+        setPaymentUserHistory([]);
+        setMonitoringSummary(null);
     };
 
     const generateKey = (targetForm) => {
@@ -265,7 +425,8 @@ function App() {
             const res = await axios.post(`${API_BASE}/admin/licenses`, {
                 license_key: values.license_key,
                 expires_days: days,
-                note: values.note
+                note: values.note,
+                plan_id: values.plan_id || 'Standard',
             }, authHeaders);
 
             if (res.data && res.data.success) {
@@ -286,7 +447,8 @@ function App() {
         editForm.setFieldsValue({
             license_key: record.license_key,
             expiry: record.expires_at ? dayjs(record.expires_at) : null,
-            note: record.note
+            note: record.note,
+            plan_id: record.plan_id || 'Standard',
         });
         setIsEditModalOpen(true);
     };
@@ -299,7 +461,8 @@ function App() {
             const res = await axios.patch(`${API_BASE}/admin/licenses/${editingLicense.id}`, {
                 license_key: values.license_key,
                 expires_at,
-                note: values.note
+                note: values.note,
+                plan_id: values.plan_id || 'Standard',
             }, authHeaders);
 
             if (res.data && res.data.success) {
@@ -487,6 +650,8 @@ function App() {
                 version_id: '',
                 version_name: '',
                 download_url: '',
+                checksum_sha256: '',
+                package_size_bytes: null,
                 is_critical: false,
                 changelog_text: '',
             });
@@ -502,6 +667,8 @@ function App() {
                 version_id: detail.version_id || record.version_id,
                 version_name: detail.version_name || '',
                 download_url: detail.download_url || '',
+                checksum_sha256: detail.checksum_sha256 || '',
+                package_size_bytes: detail.package_size_bytes ?? null,
                 is_critical: Boolean(detail.is_critical),
                 changelog_text: changelogToText(detail.changelogs),
             });
@@ -522,6 +689,8 @@ function App() {
                 version_name: values.version_name,
                 is_critical: Boolean(values.is_critical),
                 download_url: values.download_url,
+                checksum_sha256: String(values.checksum_sha256 || '').trim(),
+                package_size_bytes: values.package_size_bytes ?? null,
                 changelogs,
             }, authHeaders);
             message.success(editingVersion ? 'Cập nhật phiên bản thành công' : 'Tạo phiên bản thành công');
@@ -584,14 +753,14 @@ function App() {
         try {
             setLoading(true);
             await axios.post(`${API_BASE}/admin/omnimind/codex/releases`, payload, authHeaders);
-            message.success(editingCodexRelease ? 'Cập nhật Codex release thành công' : 'Tạo Codex release thành công');
+            message.success(editingCodexRelease ? 'Cập nhật OmniMind release thành công' : 'Tạo OmniMind release thành công');
             setIsCodexModalOpen(false);
             setEditingCodexRelease(null);
             codexForm.resetFields();
             fetchCodexReleases();
         } catch (err) {
             const serverError = err?.response?.data?.error || err?.response?.data?.message;
-            message.error(serverError || 'Lỗi khi lưu Codex release');
+            message.error(serverError || 'Lỗi khi lưu OmniMind release');
         } finally {
             setLoading(false);
         }
@@ -601,10 +770,137 @@ function App() {
         try {
             setLoading(true);
             await axios.delete(`${API_BASE}/admin/omnimind/codex/releases/${id}`, authHeaders);
-            message.success('Đã xoá Codex release');
+            message.success('Đã xoá OmniMind release');
             fetchCodexReleases();
         } catch (err) {
-            message.error('Không thể xoá Codex release');
+            message.error('Không thể xoá OmniMind release');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSavePaymentConfig = async (values) => {
+        const payload = {
+            bank_code: String(values.bank_code || '').trim(),
+            bank_account: String(values.bank_account || '').trim(),
+            bank_account_name: String(values.bank_account_name || '').trim(),
+            qr_base_url: String(values.qr_base_url || '').trim(),
+            payment_content_prefix: String(values.payment_content_prefix || '').trim().toUpperCase(),
+        };
+        const nextApiKey = String(values.sepay_api_key || '').trim();
+        if (nextApiKey) {
+            payload.sepay_api_key = nextApiKey;
+        }
+        try {
+            setLoading(true);
+            await axios.put(`${API_BASE}/admin/omnimind/payments/config`, payload, authHeaders);
+            message.success('Đã cập nhật cấu hình thanh toán');
+            fetchPaymentConfig();
+        } catch (err) {
+            const serverError = err?.response?.data?.error || err?.response?.data?.message;
+            message.error(serverError || 'Không thể lưu cấu hình thanh toán');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const openLicensePlanModal = (record = null) => {
+        setEditingLicensePlan(record);
+        licensePlanForm.setFieldsValue({
+            plan_id: record?.plan_id || '',
+            display_name: record?.display_name || '',
+            duration_days: Number(record?.duration_days || 30),
+            price: Number(record?.price || 0),
+            is_active: record?.is_active ?? true,
+            note: record?.note || '',
+        });
+        setIsLicensePlanModalOpen(true);
+    };
+
+    const handleSaveLicensePlan = async (values) => {
+        const payload = {
+            plan_id: String(values.plan_id || '').trim(),
+            display_name: String(values.display_name || '').trim(),
+            duration_days: Number(values.duration_days || 0),
+            price: Number(values.price || 0),
+            is_active: Boolean(values.is_active),
+            note: String(values.note || '').trim(),
+        };
+        try {
+            setLoading(true);
+            await axios.post(`${API_BASE}/admin/omnimind/licenses/plans`, payload, authHeaders);
+            message.success(editingLicensePlan ? 'Cập nhật plan thành công' : 'Tạo plan thành công');
+            setIsLicensePlanModalOpen(false);
+            setEditingLicensePlan(null);
+            licensePlanForm.resetFields();
+            fetchLicensePlans();
+        } catch (err) {
+            const serverError = err?.response?.data?.error || err?.response?.data?.message;
+            message.error(serverError || 'Không thể lưu license plan');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDisableLicensePlan = async (planId) => {
+        try {
+            setLoading(true);
+            await axios.delete(`${API_BASE}/admin/omnimind/licenses/plans/${planId}`, authHeaders);
+            message.success('Đã tắt plan');
+            fetchLicensePlans();
+        } catch (err) {
+            message.error('Không thể tắt plan');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const openPricingOverrideModal = () => {
+        pricingOverrideForm.setFieldsValue({
+            skill_id: '',
+            override_price: null,
+            discount_percent: null,
+            starts_at: null,
+            ends_at: null,
+            is_active: true,
+            note: '',
+        });
+        setIsPricingOverrideModalOpen(true);
+    };
+
+    const handleSavePricingOverride = async (values) => {
+        const payload = {
+            skill_id: values.skill_id,
+            override_price: values.override_price ?? null,
+            discount_percent: values.discount_percent ?? null,
+            starts_at: values.starts_at ? values.starts_at.toISOString() : null,
+            ends_at: values.ends_at ? values.ends_at.toISOString() : null,
+            is_active: Boolean(values.is_active),
+            note: String(values.note || '').trim(),
+        };
+        try {
+            setLoading(true);
+            await axios.post(`${API_BASE}/admin/omnimind/pricing/overrides`, payload, authHeaders);
+            message.success('Đã tạo pricing override');
+            setIsPricingOverrideModalOpen(false);
+            pricingOverrideForm.resetFields();
+            fetchPricingOverrides();
+        } catch (err) {
+            const serverError = err?.response?.data?.error || err?.response?.data?.message;
+            message.error(serverError || 'Không thể tạo pricing override');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeletePricingOverride = async (id) => {
+        try {
+            setLoading(true);
+            await axios.delete(`${API_BASE}/admin/omnimind/pricing/overrides/${id}`, authHeaders);
+            message.success('Đã xoá pricing override');
+            fetchPricingOverrides();
+        } catch (err) {
+            message.error('Không thể xoá pricing override');
         } finally {
             setLoading(false);
         }
@@ -639,6 +935,12 @@ function App() {
     const safeSkills = Array.isArray(skills) ? skills : [];
     const safeVersions = Array.isArray(versions) ? versions : [];
     const safeCodexReleases = Array.isArray(codexReleases) ? codexReleases : [];
+    const safeLicensePlans = Array.isArray(licensePlans) ? licensePlans : [];
+    const safePricingOverrides = Array.isArray(pricingOverrides) ? pricingOverrides : [];
+    const safePaymentTransactions = Array.isArray(paymentTransactions) ? paymentTransactions : [];
+    const safePaymentAudits = Array.isArray(paymentAudits) ? paymentAudits : [];
+    const safePaymentUserHistory = Array.isArray(paymentUserHistory) ? paymentUserHistory : [];
+    const safeMonitoringSummary = monitoringSummary && typeof monitoringSummary === 'object' ? monitoringSummary : {};
 
     const licenseColumns = [
         {
@@ -647,6 +949,8 @@ function App() {
             key: 'license_key',
             render: (t) => <span style={{ fontFamily: 'monospace', color: '#1677ff', fontWeight: 'bold' }}>{t || 'N/A'}</span>
         },
+        { title: 'Plan', dataIndex: 'plan_id', key: 'plan_id', width: 120, render: (v) => <Tag color="purple">{v || 'Standard'}</Tag> },
+        { title: 'Nguồn cấp', dataIndex: 'issued_source', key: 'issued_source', width: 110, render: (v) => v || '-' },
         { title: 'Ghi chú', dataIndex: 'note', key: 'note', render: (n) => <span style={{ fontSize: '12px', color: '#555' }}>{n || '-'}</span> },
         {
             title: 'Machine ID',
@@ -732,6 +1036,13 @@ function App() {
             render: (v) => v ? <a href={v} target="_blank" rel="noreferrer">Link tải</a> : <Tag>Chưa có</Tag>,
         },
         {
+            title: 'Checksum',
+            dataIndex: 'checksum_sha256',
+            key: 'checksum_sha256',
+            width: 220,
+            render: (v) => v ? <code>{String(v).slice(0, 18)}...</code> : '-',
+        },
+        {
             title: 'Thao tác',
             key: 'actions',
             width: 160,
@@ -779,6 +1090,106 @@ function App() {
                 </Space>
             ),
         },
+    ];
+
+    const pricingOverrideColumns = [
+        { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
+        { title: 'Skill ID', dataIndex: 'skill_id', key: 'skill_id', width: 180, render: (v) => <code>{v}</code> },
+        { title: 'Skill Name', dataIndex: 'skill_name', key: 'skill_name' },
+        { title: 'Override Price', dataIndex: 'override_price', key: 'override_price', width: 140, render: (v) => (v === null || v === undefined ? '-' : Number(v).toFixed(2)) },
+        { title: 'Discount %', dataIndex: 'discount_percent', key: 'discount_percent', width: 120, render: (v) => (v === null || v === undefined ? '-' : `${Number(v).toFixed(2)}%`) },
+        { title: 'Active', dataIndex: 'is_active', key: 'is_active', width: 90, render: (v) => v ? <Tag color="green">ON</Tag> : <Tag>OFF</Tag> },
+        { title: 'Starts', dataIndex: 'starts_at', key: 'starts_at', width: 160, render: (v) => v ? dayjs(v).format('DD/MM/YYYY HH:mm') : '-' },
+        { title: 'Ends', dataIndex: 'ends_at', key: 'ends_at', width: 160, render: (v) => v ? dayjs(v).format('DD/MM/YYYY HH:mm') : '-' },
+        {
+            title: 'Thao tác',
+            key: 'actions',
+            width: 120,
+            render: (_, r) => (
+                <Popconfirm title="Xoá override này?" onConfirm={() => handleDeletePricingOverride(r.id)}>
+                    <Button danger icon={<Trash2 size={16} />} />
+                </Popconfirm>
+            ),
+        },
+    ];
+
+    const licensePlanColumns = [
+        { title: 'Plan ID', dataIndex: 'plan_id', key: 'plan_id', width: 170, render: (v) => <code>{v}</code> },
+        { title: 'Tên gói', dataIndex: 'display_name', key: 'display_name' },
+        { title: 'Số ngày', dataIndex: 'duration_days', key: 'duration_days', width: 100 },
+        { title: 'Giá', dataIndex: 'price', key: 'price', width: 140, render: (v) => Number(v || 0).toFixed(2) },
+        { title: 'Kích hoạt', dataIndex: 'is_active', key: 'is_active', width: 100, render: (v) => v ? <Tag color="green">ON</Tag> : <Tag>OFF</Tag> },
+        { title: 'Ghi chú', dataIndex: 'note', key: 'note' },
+        {
+            title: 'Thao tác',
+            key: 'actions',
+            width: 170,
+            render: (_, r) => (
+                <Space>
+                    <Button icon={<Edit2 size={16} />} onClick={() => openLicensePlanModal(r)} />
+                    <Popconfirm title="Tắt plan này?" onConfirm={() => handleDisableLicensePlan(r.plan_id)}>
+                        <Button danger icon={<Trash2 size={16} />} />
+                    </Popconfirm>
+                </Space>
+            ),
+        },
+    ];
+
+    const paymentTransactionsColumns = [
+        { title: 'Transaction ID', dataIndex: 'id', key: 'id', width: 220, render: (v) => <code>{v}</code> },
+        { title: 'Type', dataIndex: 'type', key: 'type', width: 90 },
+        { title: 'Item', dataIndex: 'item_id', key: 'item_id', width: 160 },
+        { title: 'License', dataIndex: 'license_key', key: 'license_key', width: 170, render: (v) => v || '-' },
+        { title: 'Amount', dataIndex: 'amount', key: 'amount', width: 120, render: (v, r) => `${Number(v || 0).toFixed(2)} ${r?.currency || 'VND'}` },
+        { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (v) => <Tag color={String(v || '').toUpperCase() === 'SUCCESS' ? 'green' : (String(v || '').toUpperCase() === 'PENDING' ? 'gold' : 'red')}>{String(v || '').toUpperCase()}</Tag> },
+        { title: 'Provider Tx', dataIndex: 'provider_transaction_id', key: 'provider_transaction_id', width: 130, render: (v) => v || '-' },
+        { title: 'Payment Content', dataIndex: 'payment_content', key: 'payment_content', width: 170, render: (v) => <code>{v || '-'}</code> },
+        { title: 'Failure', dataIndex: 'failure_reason', key: 'failure_reason', width: 120, render: (v) => v || '-' },
+        { title: 'Created', dataIndex: 'created_at', key: 'created_at', width: 170, render: (v) => v ? dayjs(v).format('DD/MM/YYYY HH:mm') : '-' },
+        { title: 'Paid', dataIndex: 'paid_at', key: 'paid_at', width: 170, render: (v) => v ? dayjs(v).format('DD/MM/YYYY HH:mm') : '-' },
+    ];
+
+    const paymentAuditColumns = [
+        { title: 'ID', dataIndex: 'id', key: 'id', width: 90 },
+        { title: 'Transaction ID', dataIndex: 'transaction_id', key: 'transaction_id', width: 240, render: (v) => v ? <code>{v}</code> : '-' },
+        { title: 'Event', dataIndex: 'event_type', key: 'event_type', width: 220, render: (v) => <Tag color="blue">{v}</Tag> },
+        { title: 'Created', dataIndex: 'created_at', key: 'created_at', width: 170, render: (v) => v ? dayjs(v).format('DD/MM/YYYY HH:mm:ss') : '-' },
+        {
+            title: 'Detail',
+            dataIndex: 'detail_json',
+            key: 'detail_json',
+            render: (v) => (
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: 11 }}>
+                    {typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v || '-')}
+                </pre>
+            ),
+        },
+    ];
+
+    const paymentUserHistoryColumns = [
+        {
+            title: 'License/User',
+            dataIndex: 'label',
+            key: 'label',
+            width: 220,
+            render: (v, r) => r?.license_key ? <code>{v}</code> : <Tag>{v || 'Không gắn license'}</Tag>,
+        },
+        {
+            title: 'Trạng thái license',
+            dataIndex: 'license_status',
+            key: 'license_status',
+            width: 140,
+            render: (v) => v ? <Tag color={String(v).toLowerCase() === 'active' ? 'green' : 'orange'}>{String(v).toUpperCase()}</Tag> : '-',
+        },
+        { title: 'Plan', dataIndex: 'license_plan_id', key: 'license_plan_id', width: 130, render: (v) => v || '-' },
+        { title: 'Tổng giao dịch', dataIndex: 'total_transactions', key: 'total_transactions', width: 120 },
+        { title: 'Success', dataIndex: 'success_transactions', key: 'success_transactions', width: 100, render: (v) => <Tag color="green">{v}</Tag> },
+        { title: 'Pending', dataIndex: 'pending_transactions', key: 'pending_transactions', width: 100, render: (v) => <Tag color="gold">{v}</Tag> },
+        { title: 'Failed', dataIndex: 'failed_transactions', key: 'failed_transactions', width: 100, render: (v) => <Tag color="red">{v}</Tag> },
+        { title: 'Doanh thu success', dataIndex: 'total_success_amount', key: 'total_success_amount', width: 160, render: (v) => `${Number(v || 0).toFixed(2)} VND` },
+        { title: 'Lần đầu', dataIndex: 'first_transaction_at', key: 'first_transaction_at', width: 170, render: (v) => v ? dayjs(v).format('DD/MM/YYYY HH:mm') : '-' },
+        { title: 'Gần nhất', dataIndex: 'last_transaction_at', key: 'last_transaction_at', width: 170, render: (v) => v ? dayjs(v).format('DD/MM/YYYY HH:mm') : '-' },
+        { title: 'Last Tx', dataIndex: 'last_transaction_id', key: 'last_transaction_id', width: 220, render: (v) => v ? <code>{v}</code> : '-' },
     ];
 
     const dashboardContent = (
@@ -878,7 +1289,7 @@ function App() {
     const codexContent = (
         <>
             <Row gutter={16} style={{ marginBottom: 24 }}>
-                <Col span={8}><Card bordered={false}><Statistic title="Tổng Codex Release" value={safeCodexReleases.length} prefix={<Database size={18} />} /></Card></Col>
+                <Col span={8}><Card bordered={false}><Statistic title="Tổng OmniMind CLI Release" value={safeCodexReleases.length} prefix={<Database size={18} />} /></Card></Col>
                 <Col span={8}><Card bordered={false}><Statistic title="Đang Active" value={safeCodexReleases.filter((r) => r.is_active).length} /></Card></Col>
                 <Col span={8}>
                     <Button
@@ -888,7 +1299,7 @@ function App() {
                         onClick={() => openCodexModal(null)}
                         style={{ width: '100%', height: 60, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                     >
-                        Tạo Codex Release
+                        Tạo OmniMind CLI Release
                     </Button>
                 </Col>
             </Row>
@@ -898,11 +1309,195 @@ function App() {
         </>
     );
 
+    const monitoringTx24h = safeMonitoringSummary.transactions_24h || {};
+    const monitoringWebhook24h = safeMonitoringSummary.webhook_24h || {};
+    const monitoringAudit24h = safeMonitoringSummary.audits_24h || {};
+
+    const paymentContent = (
+        <>
+            <Row gutter={16} style={{ marginBottom: 24 }}>
+                <Col span={6}><Card bordered={false}><Statistic title="License Plans" value={safeLicensePlans.length} prefix={<CreditCard size={18} />} /></Card></Col>
+                <Col span={6}><Card bordered={false}><Statistic title="Pricing Overrides" value={safePricingOverrides.length} /></Card></Col>
+                <Col span={6}><Card bordered={false}><Statistic title="Giao dịch SePay" value={safePaymentTransactions.length} /></Card></Col>
+                <Col span={6}><Card bordered={false}><Statistic title="User thanh toán" value={safePaymentUserHistory.length} /></Card></Col>
+            </Row>
+
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+                <Col span={12}>
+                    <Button
+                        type="primary"
+                        size="large"
+                        icon={<Plus size={20} />}
+                        onClick={() => openLicensePlanModal(null)}
+                        style={{ width: '100%', height: 60, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                    >
+                        Tạo License Plan
+                    </Button>
+                </Col>
+                <Col span={12}>
+                    <Button
+                        size="large"
+                        icon={<Plus size={20} />}
+                        onClick={openPricingOverrideModal}
+                        style={{ width: '100%', height: 60, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                    >
+                        Tạo Pricing Override
+                    </Button>
+                </Col>
+            </Row>
+
+            <Tabs
+                defaultActiveKey="config"
+                items={[
+                    {
+                        key: 'monitoring',
+                        label: 'Monitoring & Rollback',
+                        children: (
+                            <Card bordered={false} style={{ borderRadius: 12 }}>
+                                <Row gutter={16} style={{ marginBottom: 12 }}>
+                                    <Col span={6}>
+                                        <Card size="small">
+                                            <Statistic title="Tx 24h" value={Number(monitoringTx24h.total || 0)} />
+                                        </Card>
+                                    </Col>
+                                    <Col span={6}>
+                                        <Card size="small">
+                                            <Statistic title="Success 24h" value={Number(monitoringTx24h.success || 0)} valueStyle={{ color: '#3f8600' }} />
+                                        </Card>
+                                    </Col>
+                                    <Col span={6}>
+                                        <Card size="small">
+                                            <Statistic title="Pending quá hạn" value={Number(safeMonitoringSummary.overdue_pending_count || 0)} valueStyle={{ color: '#cf1322' }} />
+                                        </Card>
+                                    </Col>
+                                    <Col span={6}>
+                                        <Card size="small">
+                                            <Statistic title="Webhook unmatched 24h" value={Number(monitoringWebhook24h.unmatched || 0)} valueStyle={{ color: '#fa8c16' }} />
+                                        </Card>
+                                    </Col>
+                                </Row>
+                                <Row gutter={16} style={{ marginBottom: 12 }}>
+                                    <Col span={8}><Tag color="green">Webhook matched: {Number(monitoringWebhook24h.matched || 0)}</Tag></Col>
+                                    <Col span={8}><Tag color="red">Webhook amount_mismatch: {Number(monitoringWebhook24h.amount_mismatch || 0)}</Tag></Col>
+                                    <Col span={8}><Tag color="blue">Audit lỗi 24h: {Number(monitoringAudit24h.error_events || 0)}</Tag></Col>
+                                </Row>
+                                <Card size="small" title="Checklist rollback khi có sự cố thanh toán/deploy">
+                                    <ol style={{ margin: 0, paddingLeft: 18 }}>
+                                        <li>Khoá release mới trên CMS (set inactive) để chặn phát sinh lỗi mới.</li>
+                                        <li>Kiểm tra tab Monitoring: pending quá hạn, unmatched webhook, audit error.</li>
+                                        <li>Đối soát giao dịch với SePay theo `payment_content` và `provider_transaction_id`.</li>
+                                        <li>Nếu webhook lỗi: replay webhook hoặc cập nhật trạng thái transaction thủ công.</li>
+                                        <li>Redeploy backend/CMS bản ổn định trước, xác nhận API health rồi mới mở lại release.</li>
+                                    </ol>
+                                </Card>
+                            </Card>
+                        ),
+                    },
+                    {
+                        key: 'config',
+                        label: 'Cấu hình SePay',
+                        children: (
+                            <Card bordered={false} style={{ borderRadius: 12 }}>
+                                <Form form={paymentConfigForm} layout="vertical" onFinish={handleSavePaymentConfig}>
+                                    <Row gutter={12}>
+                                        <Col span={8}>
+                                            <Form.Item label="Bank Code" name="bank_code" rules={[{ required: true, message: 'Nhập bank code' }]}>
+                                                <Input placeholder="VCB" />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={8}>
+                                            <Form.Item label="Bank Account" name="bank_account" rules={[{ required: true, message: 'Nhập số tài khoản' }]}>
+                                                <Input placeholder="0123456789" />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={8}>
+                                            <Form.Item label="Bank Account Name" name="bank_account_name">
+                                                <Input placeholder="NGUYEN VAN A" />
+                                            </Form.Item>
+                                        </Col>
+                                    </Row>
+                                    <Row gutter={12}>
+                                        <Col span={12}>
+                                            <Form.Item label="QR Base URL" name="qr_base_url" rules={[{ required: true, message: 'Nhập QR base URL' }, { type: 'url', message: 'URL không hợp lệ' }]}>
+                                                <Input placeholder="https://img.vietqr.io/image" />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={12}>
+                                            <Form.Item label="Tiền tố nội dung CK" name="payment_content_prefix" rules={[{ required: true, message: 'Nhập tiền tố' }]}>
+                                                <Input maxLength={8} placeholder="OMNI" />
+                                            </Form.Item>
+                                        </Col>
+                                    </Row>
+                                    <Row gutter={12}>
+                                        <Col span={24}>
+                                            <Form.Item label="SePay API Key (để trống nếu giữ nguyên)" name="sepay_api_key">
+                                                <Input.Password placeholder={paymentConfig?.sepay_api_key ? 'Đã lưu API key, nhập để cập nhật' : 'Nhập API key mới'} />
+                                            </Form.Item>
+                                        </Col>
+                                    </Row>
+                                    <Form.Item>
+                                        <Button type="primary" htmlType="submit" loading={loading}>Lưu cấu hình thanh toán</Button>
+                                    </Form.Item>
+                                </Form>
+                            </Card>
+                        ),
+                    },
+                    {
+                        key: 'license_plans',
+                        label: 'License Plans',
+                        children: (
+                            <Card bordered={false} style={{ borderRadius: 12 }}>
+                                <Table columns={licensePlanColumns} dataSource={safeLicensePlans} rowKey="plan_id" loading={loading} pagination={{ pageSize: 8 }} />
+                            </Card>
+                        ),
+                    },
+                    {
+                        key: 'overrides',
+                        label: 'Pricing Overrides',
+                        children: (
+                            <Card bordered={false} style={{ borderRadius: 12 }}>
+                                <Table columns={pricingOverrideColumns} dataSource={safePricingOverrides} rowKey="id" loading={loading} pagination={{ pageSize: 8 }} scroll={{ x: 1200 }} />
+                            </Card>
+                        ),
+                    },
+                    {
+                        key: 'transactions',
+                        label: 'Giao dịch SePay',
+                        children: (
+                            <Card bordered={false} style={{ borderRadius: 12 }}>
+                                <Table columns={paymentTransactionsColumns} dataSource={safePaymentTransactions} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} scroll={{ x: 1600 }} />
+                            </Card>
+                        ),
+                    },
+                    {
+                        key: 'users_history',
+                        label: 'Lịch sử theo người dùng',
+                        children: (
+                            <Card bordered={false} style={{ borderRadius: 12 }}>
+                                <Table columns={paymentUserHistoryColumns} dataSource={safePaymentUserHistory} rowKey={(row) => `${row.license_key || 'no_license'}:${row.last_transaction_id || row.label || 'unknown'}`} loading={loading} pagination={{ pageSize: 10 }} scroll={{ x: 1800 }} />
+                            </Card>
+                        ),
+                    },
+                    {
+                        key: 'audits',
+                        label: 'Payment Audits',
+                        children: (
+                            <Card bordered={false} style={{ borderRadius: 12 }}>
+                                <Table columns={paymentAuditColumns} dataSource={safePaymentAudits} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} scroll={{ x: 1600 }} />
+                            </Card>
+                        ),
+                    },
+                ]}
+            />
+        </>
+    );
+
     let content = dashboardContent;
     if (activeMenu === 'licenses') content = licensesContent;
     if (activeMenu === 'skills') content = skillsContent;
     if (activeMenu === 'versions') content = versionsContent;
     if (activeMenu === 'codex') content = codexContent;
+    if (activeMenu === 'payments') content = paymentContent;
 
     return (
         <ConfigProvider theme={{ algorithm: theme.defaultAlgorithm }}>
@@ -922,7 +1517,8 @@ function App() {
                             { key: 'licenses', icon: <Database size={18} />, label: 'Danh sách License' },
                             { key: 'skills', icon: <Puzzle size={18} />, label: 'Marketplace Skills' },
                             { key: 'versions', icon: <RefreshCcw size={18} />, label: 'App Versions' },
-                            { key: 'codex', icon: <Key size={18} />, label: 'Codex Releases' },
+                            { key: 'codex', icon: <Key size={18} />, label: 'OmniMind CLI Releases' },
+                            { key: 'payments', icon: <CreditCard size={18} />, label: 'Thanh toán' },
                         ]}
                     />
                 </Layout.Sider>
@@ -931,7 +1527,7 @@ function App() {
                     <Layout.Header style={{ backgroundColor: 'white', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f0f0' }}>
                         <h3 style={{ margin: 0 }}>License & Marketplace Manager</h3>
                         <Space>
-                            <Button icon={<RefreshCcw size={16} />} onClick={() => { fetchLicenses(); fetchSkills(); fetchVersions(); fetchCodexReleases(); }}>
+                            <Button icon={<RefreshCcw size={16} />} onClick={() => { fetchLicenses(); fetchSkills(); fetchVersions(); fetchCodexReleases(); fetchPaymentConfig(); fetchLicensePlans(); fetchPricingOverrides(); fetchPaymentTransactions(); fetchPaymentAudits(); fetchPaymentUserHistory(); fetchMonitoringSummary(); }}>
                                 Refresh
                             </Button>
                             <Button icon={<LogOut size={18} />} onClick={handleLogout}>Đăng xuất</Button>
@@ -947,6 +1543,9 @@ function App() {
                     <Form form={form} layout="vertical" onFinish={handleCreateLicense}>
                         <Form.Item label="License Key" name="license_key" rules={[{ required: true, message: 'Nhập key' }]}>
                             <Input suffix={<Button type="link" onClick={() => generateKey(form)} style={{ padding: 0 }}>Auto</Button>} placeholder="AG-XXXX" />
+                        </Form.Item>
+                        <Form.Item label="Plan ID" name="plan_id" initialValue="Standard">
+                            <Input placeholder="Standard / pro_90d ..." />
                         </Form.Item>
                         <Form.Item label="Ngày hết hạn" name="expiry">
                             <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
@@ -964,6 +1563,9 @@ function App() {
                     <Form form={editForm} layout="vertical" onFinish={handleUpdateLicense}>
                         <Form.Item label="License Key" name="license_key" rules={[{ required: true, message: 'Nhập key' }]}>
                             <Input suffix={<Button type="link" onClick={() => generateKey(editForm)} style={{ padding: 0 }}>Auto</Button>} />
+                        </Form.Item>
+                        <Form.Item label="Plan ID" name="plan_id" initialValue="Standard">
+                            <Input placeholder="Standard / pro_90d ..." />
                         </Form.Item>
                         <Form.Item label="Ngày hết hạn" name="expiry">
                             <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
@@ -1211,6 +1813,19 @@ function App() {
                             <Input placeholder="https://cdn.example.com/omnimind/v1.2.0.zip" />
                         </Form.Item>
 
+                        <Row gutter={12}>
+                            <Col span={16}>
+                                <Form.Item label="Checksum SHA256" name="checksum_sha256">
+                                    <Input placeholder="sha256:abc... hoặc chỉ nhập hex" />
+                                </Form.Item>
+                            </Col>
+                            <Col span={8}>
+                                <Form.Item label="Package size (bytes)" name="package_size_bytes">
+                                    <InputNumber min={0} style={{ width: '100%' }} />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+
                         <Form.Item label="Critical Update" name="is_critical" valuePropName="checked">
                             <Switch />
                         </Form.Item>
@@ -1235,7 +1850,7 @@ function App() {
                 </Modal>
 
                 <Modal
-                    title={editingCodexRelease ? "Chỉnh sửa Codex Release" : "Tạo Codex Release mới"}
+                    title={editingCodexRelease ? "Chỉnh sửa OmniMind CLI Release" : "Tạo OmniMind CLI Release mới"}
                     open={isCodexModalOpen}
                     onCancel={() => { setIsCodexModalOpen(false); setEditingCodexRelease(null); }}
                     footer={null}
@@ -1268,8 +1883,8 @@ function App() {
                                 </Form.Item>
                             </Col>
                             <Col span={16}>
-                                <Form.Item label="Download URL" name="url" rules={[{ required: true, message: 'Nhập link tải Codex' }, { type: 'url', message: 'URL không hợp lệ' }]}>
-                                    <Input placeholder="https://.../codex.zip" />
+                                <Form.Item label="Download URL" name="url" rules={[{ required: true, message: 'Nhập link tải OmniMind CLI' }, { type: 'url', message: 'URL không hợp lệ' }]}>
+                                    <Input placeholder="https://.../omnimind-cli.zip" />
                                 </Form.Item>
                             </Col>
                         </Row>
@@ -1282,7 +1897,7 @@ function App() {
                             </Col>
                             <Col span={12}>
                                 <Form.Item label="File Name" name="file_name">
-                                    <Input placeholder="codex.zip" />
+                                    <Input placeholder="omnimind-cli.zip" />
                                 </Form.Item>
                             </Col>
                         </Row>
@@ -1311,8 +1926,95 @@ function App() {
 
                         <Form.Item>
                             <Button type="primary" htmlType="submit" block size="large" loading={loading}>
-                                {editingCodexRelease ? 'Lưu cập nhật' : 'Tạo Codex Release'}
+                                {editingCodexRelease ? 'Lưu cập nhật' : 'Tạo OmniMind CLI Release'}
                             </Button>
+                        </Form.Item>
+                    </Form>
+                </Modal>
+
+                <Modal
+                    title={editingLicensePlan ? "Chỉnh sửa License Plan" : "Tạo License Plan"}
+                    open={isLicensePlanModalOpen}
+                    onCancel={() => { setIsLicensePlanModalOpen(false); setEditingLicensePlan(null); }}
+                    footer={null}
+                    destroyOnClose
+                >
+                    <Form form={licensePlanForm} layout="vertical" onFinish={handleSaveLicensePlan}>
+                        <Form.Item label="Plan ID" name="plan_id" rules={[{ required: true, message: 'Nhập plan_id' }]}>
+                            <Input placeholder="standard_30d" disabled={Boolean(editingLicensePlan)} />
+                        </Form.Item>
+                        <Form.Item label="Tên gói" name="display_name" rules={[{ required: true, message: 'Nhập tên gói' }]}>
+                            <Input placeholder="Standard 30 ngày" />
+                        </Form.Item>
+                        <Row gutter={12}>
+                            <Col span={12}>
+                                <Form.Item label="Số ngày hiệu lực" name="duration_days" rules={[{ required: true, message: 'Nhập số ngày' }]}>
+                                    <InputNumber min={1} step={1} style={{ width: '100%' }} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={12}>
+                                <Form.Item label="Giá (VND)" name="price" rules={[{ required: true, message: 'Nhập giá' }]}>
+                                    <InputNumber min={0} step={1000} style={{ width: '100%' }} />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                        <Form.Item label="Active" name="is_active" valuePropName="checked" initialValue>
+                            <Switch />
+                        </Form.Item>
+                        <Form.Item label="Note" name="note">
+                            <Input.TextArea rows={3} />
+                        </Form.Item>
+                        <Form.Item>
+                            <Button type="primary" htmlType="submit" block loading={loading}>
+                                {editingLicensePlan ? 'Lưu cập nhật' : 'Tạo Plan'}
+                            </Button>
+                        </Form.Item>
+                    </Form>
+                </Modal>
+
+                <Modal
+                    title="Tạo Pricing Override"
+                    open={isPricingOverrideModalOpen}
+                    onCancel={() => setIsPricingOverrideModalOpen(false)}
+                    footer={null}
+                    destroyOnClose
+                >
+                    <Form form={pricingOverrideForm} layout="vertical" onFinish={handleSavePricingOverride}>
+                        <Form.Item label="Skill ID" name="skill_id" rules={[{ required: true, message: 'Nhập skill_id' }]}>
+                            <Input placeholder="office-meeting-notes" />
+                        </Form.Item>
+                        <Row gutter={12}>
+                            <Col span={12}>
+                                <Form.Item label="Override Price" name="override_price">
+                                    <InputNumber min={0} step={1000} style={{ width: '100%' }} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={12}>
+                                <Form.Item label="Discount %" name="discount_percent">
+                                    <InputNumber min={0} max={100} step={1} style={{ width: '100%' }} />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                        <Row gutter={12}>
+                            <Col span={12}>
+                                <Form.Item label="Starts At" name="starts_at">
+                                    <DatePicker showTime style={{ width: '100%' }} format="DD/MM/YYYY HH:mm:ss" />
+                                </Form.Item>
+                            </Col>
+                            <Col span={12}>
+                                <Form.Item label="Ends At" name="ends_at">
+                                    <DatePicker showTime style={{ width: '100%' }} format="DD/MM/YYYY HH:mm:ss" />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                        <Form.Item label="Active" name="is_active" valuePropName="checked" initialValue>
+                            <Switch />
+                        </Form.Item>
+                        <Form.Item label="Note" name="note">
+                            <Input.TextArea rows={3} />
+                        </Form.Item>
+                        <Form.Item>
+                            <Button type="primary" htmlType="submit" block loading={loading}>Tạo Override</Button>
                         </Form.Item>
                     </Form>
                 </Modal>
